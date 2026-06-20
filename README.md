@@ -21,8 +21,7 @@ Ktor listens privately on `127.0.0.1:8080`. Caddy provides public HTTPS/WSS encr
 1. Keep the No-IP hostname `somechatapp.ddns.net` updated to the current public IP.
 2. Forward external TCP ports `80` and `443` to this computer's local IPv4 address.
 3. Allow inbound TCP ports `80` and `443` through Windows Firewall.
-4. Remove the old router forwarding and firewall rule for public port `8080`.
-5. Put `caddy.exe` beside `Caddyfile`, then run `start-secure-server.bat`.
+4. Put `caddy.exe` beside `Caddyfile`, then run `start-secure-server.bat`.
 
 Transport is encrypted, but the app still has no user authentication. Anyone who discovers the hostname can currently join the chat and access shared files.
 
