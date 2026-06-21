@@ -16,5 +16,7 @@ keystore.properties
 *.aab
 app/release/
 **/server-data/public/*
+**/server-data/history/*
+**/server-data/logs/*
 !/server-data/public/.gitkeep
 /caddy.exe

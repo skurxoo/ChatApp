@@ -1,43 +1,48 @@
 @echo off
-title ChatApp Secure Server
+title ChatApp Server + HTTPS
 cd /d "%~dp0"
 
 if not exist "%~dp0caddy.exe" (
     echo ERROR: caddy.exe was not found beside this launcher.
-    echo Place caddy.exe in: %~dp0
     pause
     exit /b 1
 )
 
 set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+set "CHATAPP_DATA_DIR=%~dp0server\server-data"
+set "LOG_DIR=%~dp0server\server-data\logs"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-echo Starting encrypted HTTPS and WSS proxy...
-tasklist /FI "IMAGENAME eq caddy.exe" 2>NUL | find /I "caddy.exe" >NUL
+powershell -NoProfile -Command "if (Get-NetTCPConnection -State Listen -LocalPort 8080 -ErrorAction SilentlyContinue) { exit 1 }"
 if errorlevel 1 (
-    start "ChatApp HTTPS" /min "%~dp0caddy.exe" run --config "%~dp0Caddyfile"
-) else (
-    echo Caddy is already running.
-)
-
-powershell -NoProfile -Command "$c=Get-NetTCPConnection -State Listen -LocalPort 8080 -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 0}; if($c.LocalAddress -eq '127.0.0.1'){exit 10}; exit 20"
-if errorlevel 20 (
-    echo ERROR: An older or unrelated server is exposing port 8080 on the network.
-    echo Stop it in Android Studio or close its server window, then try again.
+    echo ERROR: A ChatApp server is already running on port 8080.
+    echo Close the older server window, then try again.
     pause
     exit /b 1
 )
-if errorlevel 10 (
-    echo ChatApp server is already running securely. No second copy is needed.
-    echo Caddy and the server are ready.
+
+taskkill /IM caddy.exe /F >NUL 2>&1
+
+echo Starting HTTPS/WSS and ChatApp in this window...
+start "" /b "%~dp0caddy.exe" run --config "%~dp0Caddyfile" > "%LOG_DIR%\caddy.log" 2>&1
+timeout /t 2 /nobreak >NUL
+
+powershell -NoProfile -Command "if (-not (Get-NetTCPConnection -State Listen -LocalPort 443 -ErrorAction SilentlyContinue)) { exit 1 }"
+if errorlevel 1 (
+    echo ERROR: HTTPS failed to start. Recent Caddy log:
+    type "%LOG_DIR%\caddy.log"
+    taskkill /IM caddy.exe /F >NUL 2>&1
     pause
-    exit /b 0
+    exit /b 1
 )
 
-echo Starting ChatApp server...
-echo Keep this window open. Press Ctrl+C to stop the app server.
+echo HTTPS is running. Starting the app server...
+echo Keep this one window open. Closing it stops both services.
 echo.
+
 call gradlew.bat :server:run
 
+taskkill /IM caddy.exe /F >NUL 2>&1
 echo.
-echo The app server has stopped. Close the ChatApp HTTPS window too.
+echo ChatApp and HTTPS have stopped.
 pause

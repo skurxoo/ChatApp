@@ -1,5 +1,7 @@
 # ChatApp
 
+Current release: **v1.1.1** (Android version code 3).
+
 A local real-time chat app with an Android Jetpack Compose client and a Kotlin/Ktor WebSocket server. It does not require an external API or cloud account.
 
 ## Run it in Android Studio
@@ -30,3 +32,7 @@ Transport is encrypted, but the app still has no user authentication. Anyone who
 The app's **Files** tab uploads to `server-data/public` on the server computer. Individual files are limited to 100 MB and the shared folder is limited to 500 MB. Files in this directory are intentionally excluded from Git.
 
 Because the current server has no authentication, anyone who can reach the public server address can upload or download these files. Do not store sensitive material there.
+
+## 24-hour activity history
+
+Chat messages and username join/leave activity are retained on the server for 24 hours in `server/server-data/history/events.log` when using the secure launcher. Recent activity is replayed when a client joins and expired records are removed automatically. The history file is excluded from Git.

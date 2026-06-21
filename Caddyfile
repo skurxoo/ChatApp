@@ -1,4 +1,21 @@
 somechatapp.ddns.net {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:8080
+
+	handle /chat* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle /files* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle /health {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		root * website
+		try_files {path} /index.html
+		file_server
+	}
 }

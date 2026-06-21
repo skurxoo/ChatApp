@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#e85d04">
+    <meta name="description" content="ChatApp is a warm, lightweight Android chat with real-time messaging and shared files.">
+    <title>ChatApp — A little place to talk</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="#top" aria-label="ChatApp home">
+            <span class="brand-mark" aria-hidden="true">C</span>
+            <span>ChatApp</span>
+        </a>
+        <nav aria-label="Main navigation">
+            <a href="#features">Features</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/skurxoo/ChatApp" target="_blank" rel="noreferrer">GitHub</a>
+        </nav>
+    </header>
+
+    <main id="top">
+        <section class="hero">
+            <div class="hero-copy">
+                <div class="eyebrow">
+                    <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+                    <span id="server-status">Checking server…</span>
+                </div>
+                <h1>A little place<br><span>to talk.</span></h1>
+                <p class="hero-text">Real-time Android chat, online presence, and simple file sharing—all wrapped in a warm, uncluttered experience.</p>
+                <div class="hero-actions">
+                    <a class="button button-primary" href="https://github.com/skurxoo/ChatApp/releases/latest/download/app-release.apk">Download for Android</a>
+                    <a class="button button-secondary" href="#install">Installation guide</a>
+                </div>
+                <p class="version">Latest release: <strong>v1.1.1</strong> · Android 9 or newer</p>
+            </div>
+
+            <div class="phone" aria-label="ChatApp interface preview">
+                <div class="phone-speaker"></div>
+                <div class="app-bar">
+                    <div>
+                        <strong>Our chat</strong>
+                        <small><span></span> Connected</small>
+                    </div>
+                    <div class="online-pill">3 online</div>
+                </div>
+                <div class="tabs"><strong>Chat</strong><span>Files</span></div>
+                <div class="messages">
+                    <div class="message other"><b>Alex</b><p>Hey! The new page is live.</p><small>12:42</small></div>
+                    <div class="message mine"><b>You</b><p>That orange looks rather lovely.</p><small>12:43</small></div>
+                    <div class="message other"><b>Sam</b><p>See you in the chat 👋</p><small>12:44</small></div>
+                </div>
+                <div class="composer"><span>Write a message…</span><b>Send</b></div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="section-heading">
+                <span>Made for conversation</span>
+                <h2>The useful things, without the clutter.</h2>
+            </div>
+            <div class="feature-grid">
+                <article>
+                    <div class="feature-icon">↗</div>
+                    <h3>Real-time messages</h3>
+                    <p>Messages arrive instantly through a persistent encrypted connection.</p>
+                </article>
+                <article>
+                    <div class="feature-icon">●</div>
+                    <h3>See who is online</h3>
+                    <p>Open the people panel to see everyone currently connected to the server.</p>
+                </article>
+                <article>
+                    <div class="feature-icon">⇩</div>
+                    <h3>Shared files</h3>
+                    <p>Upload and download shared files up to 100 MB from the dedicated Files tab.</p>
+                </article>
+                <article>
+                    <div class="feature-icon">◇</div>
+                    <h3>Encrypted in transit</h3>
+                    <p>HTTPS and secure WebSockets protect traffic between the app and server.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="install" id="install">
+            <div class="install-card">
+                <div>
+                    <span class="step-label">Install in a minute</span>
+                    <h2>Take ChatApp with you.</h2>
+                    <p>Download the signed APK directly from GitHub Releases. Your phone may ask permission to install an app from your browser.</p>
+                </div>
+                <ol>
+                    <li><span>1</span><div><b>Download the APK</b><small>Use the orange download button.</small></div></li>
+                    <li><span>2</span><div><b>Allow this source</b><small>Approve “Install unknown apps” when Android asks.</small></div></li>
+                    <li><span>3</span><div><b>Open ChatApp</b><small>Choose a name and join the conversation.</small></div></li>
+                </ol>
+                <a class="button button-light" href="https://github.com/skurxoo/ChatApp/releases/latest/download/app-release.apk">Get ChatApp v1.1.1</a>
+            </div>
+        </section>
+
+        <aside class="notice">
+            <strong>Early access</strong>
+            <p>ChatApp is currently an open, self-hosted project without user accounts. Anyone with the server address can join and use shared files, so avoid sensitive material for now.</p>
+        </aside>
+    </main>
+
+    <footer>
+        <div class="brand"><span class="brand-mark">C</span><span>ChatApp</span></div>
+        <p>Built with Kotlin, Compose, Ktor, and a fondness for orange.</p>
+        <a href="https://github.com/skurxoo/ChatApp" target="_blank" rel="noreferrer">View source</a>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

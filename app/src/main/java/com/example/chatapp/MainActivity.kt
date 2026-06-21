@@ -2,6 +2,8 @@ package com.example.chatapp
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.util.Base64
 import androidx.activity.ComponentActivity
@@ -73,6 +75,12 @@ class MainActivity : ComponentActivity() {
     private var fileTransferStatus by mutableStateOf("")
     private var client: WebSocketClient? = null
     private var currentUsername = ""
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private var reconnectAttempt = 0
+    private var shouldStayConnected = false
+    private val reconnectRunnable = Runnable {
+        if (shouldStayConnected && currentUsername.isNotBlank()) openConnection()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,14 +107,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun connect(username: String) {
-        if (client?.isOpen == true || connectionState == ConnectionState.CONNECTING) return
-
         currentUsername = username.trim().take(24)
+        if (currentUsername.isBlank()) return
+        shouldStayConnected = true
+        reconnectAttempt = 0
+        openConnection()
+    }
+
+    private fun openConnection() {
+        if (!shouldStayConnected || client?.isOpen == true || connectionState == ConnectionState.CONNECTING) return
+
+        reconnectHandler.removeCallbacks(reconnectRunnable)
         connectionState = ConnectionState.CONNECTING
-        client = object : WebSocketClient(URI(SERVER_URL)) {
+        val newClient = object : WebSocketClient(URI(SERVER_URL)) {
             override fun onOpen(handshakedata: ServerHandshake?) {
                 send(ChatProtocol.encodeJoin(currentUsername))
-                runOnUiThread { connectionState = ConnectionState.CONNECTED }
+                runOnUiThread {
+                    if (client !== this) return@runOnUiThread
+                    reconnectAttempt = 0
+                    connectionState = ConnectionState.CONNECTED
+                }
             }
 
             override fun onMessage(message: String?) {
@@ -120,17 +140,49 @@ class MainActivity : ComponentActivity() {
                     return
                 }
                 val decoded = ChatProtocol.decodeServerMessage(value) ?: return
-                runOnUiThread { messages += decoded }
+                runOnUiThread {
+                    if (messages.none { it.id == decoded.id }) messages += decoded
+                }
             }
 
             override fun onClose(code: Int, reason: String?, remote: Boolean) {
-                runOnUiThread { connectionState = ConnectionState.DISCONNECTED }
+                runOnUiThread {
+                    if (client !== this) return@runOnUiThread
+                    client = null
+                    scheduleReconnect()
+                }
             }
 
             override fun onError(ex: Exception?) {
-                runOnUiThread { connectionState = ConnectionState.ERROR }
+                runOnUiThread {
+                    if (client !== this) return@runOnUiThread
+                    connectionState = ConnectionState.ERROR
+                    scheduleReconnect()
+                }
             }
-        }.also { it.connect() }
+        }
+        newClient.setConnectionLostTimeout(90)
+        client = newClient
+        newClient.connect()
+    }
+
+    private fun scheduleReconnect() {
+        if (!shouldStayConnected || isFinishing || isDestroyed) {
+            connectionState = ConnectionState.DISCONNECTED
+            return
+        }
+
+        reconnectHandler.removeCallbacks(reconnectRunnable)
+        val delaySeconds = when (reconnectAttempt.coerceAtMost(5)) {
+            0 -> 2L
+            1 -> 4L
+            2 -> 8L
+            3 -> 15L
+            else -> 30L
+        }
+        reconnectAttempt++
+        connectionState = ConnectionState.RECONNECTING
+        reconnectHandler.postDelayed(reconnectRunnable, delaySeconds * 1_000)
     }
 
     private fun sendMessage(text: String) {
@@ -263,7 +315,10 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onDestroy() {
+        shouldStayConnected = false
+        reconnectHandler.removeCallbacks(reconnectRunnable)
         client?.close()
+        client = null
         super.onDestroy()
     }
 
@@ -276,6 +331,7 @@ class MainActivity : ComponentActivity() {
 private enum class ConnectionState(val label: String) {
     DISCONNECTED("Disconnected"),
     CONNECTING("Connecting..."),
+    RECONNECTING("Reconnecting..."),
     CONNECTED("Connected"),
     ERROR("Connection failed"),
 }
@@ -836,7 +892,7 @@ private fun MessageBubble(message: ChatMessage, isMine: Boolean) {
 
 private fun statusColor(state: ConnectionState): Color = when (state) {
     ConnectionState.CONNECTED -> Color(0xFF7CFC98)
-    ConnectionState.CONNECTING -> Color(0xFFFFD166)
+    ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> Color(0xFFFFD166)
     ConnectionState.DISCONNECTED, ConnectionState.ERROR -> Color(0xFFFFB4AB)
 }
 

@@ -30,20 +30,31 @@ import java.util.concurrent.ConcurrentHashMap
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 
-private const val PORT = 8081
+private const val PORT = 8080
 private const val MAX_FILE_SIZE = 100L * 1024 * 1024
 private const val MAX_TOTAL_STORAGE = 500L * 1024 * 1024
+private const val HISTORY_RETENTION_MS = 24L * 60 * 60 * 1000
+private const val MAX_HISTORY_EVENTS = 10_000
 private val clients = ConcurrentHashMap<DefaultWebSocketServerSession, String>()
 private val broadcastMutex = Mutex()
-private val publicFilesDir: Path = Path.of("server-data", "public").toAbsolutePath().normalize()
+private val serverDataDir: Path = System.getenv("CHATAPP_DATA_DIR")
+    ?.let(Path::of)
+    ?.toAbsolutePath()
+    ?.normalize()
+    ?: Path.of("server-data").toAbsolutePath().normalize()
+private val publicFilesDir: Path = serverDataDir.resolve("public")
 
 fun main() {
     Files.createDirectories(publicFilesDir)
+    HistoryStore.initialize()
     embeddedServer(Netty, host = "127.0.0.1", port = PORT) {
         install(WebSockets) {
-            pingPeriodMillis = 15_000
-            timeoutMillis = 30_000
+            // Mobile radios can briefly sleep or switch between Wi-Fi and cellular.
+            // Keep the heartbeat, but allow enough time for those short interruptions.
+            pingPeriodMillis = 30_000
+            timeoutMillis = 120_000
         }
 
         routing {
@@ -56,18 +67,35 @@ fun main() {
                         if (frame !is Frame.Text) continue
 
                         val incomingMessage = ChatProtocol.decodeClientMessage(frame.readText()) ?: continue
-                        username = incomingMessage.username
-                        if (incomingMessage.isJoin) clients[this] = username
-                        val type = if (incomingMessage.isJoin) "SYSTEM" else "MESSAGE"
-                        val sender = if (incomingMessage.isJoin) "ChatApp" else username
-                        val text = if (incomingMessage.isJoin) "$username joined the chat" else incomingMessage.text
-                        broadcast(ChatProtocol.encodeServerMessage(type, sender, text))
-                        if (incomingMessage.isJoin) broadcastPresence()
+                        if (incomingMessage.isJoin) {
+                            username = incomingMessage.username
+                            clients[this] = username
+                            sendRecentHistory(this)
+                            recordAndBroadcast(
+                                ChatProtocol.encodeServerMessage(
+                                    type = "SYSTEM",
+                                    username = "ChatApp",
+                                    text = "$username joined the chat",
+                                ),
+                            )
+                            broadcastPresence()
+                        } else {
+                            val registeredUsername = clients[this]
+                            if (registeredUsername.isNullOrBlank() || registeredUsername == "Guest") continue
+                            username = registeredUsername
+                            recordAndBroadcast(
+                                ChatProtocol.encodeServerMessage(
+                                    type = "MESSAGE",
+                                    username = username,
+                                    text = incomingMessage.text,
+                                ),
+                            )
+                        }
                     }
                 } finally {
                     clients.remove(this)
                     if (username != "Guest") {
-                        broadcast(
+                        recordAndBroadcast(
                             ChatProtocol.encodeServerMessage(
                                 type = "SYSTEM",
                                 username = "ChatApp",
@@ -93,6 +121,10 @@ fun main() {
                         }
                 }
                 call.respondText(files, ContentType.Text.Plain)
+            }
+
+            get("/health") {
+                call.respondText("ok", ContentType.Text.Plain)
             }
 
             get("/files/{name}") {
@@ -220,6 +252,18 @@ private suspend fun broadcast(message: String) {
     }
 }
 
+private suspend fun recordAndBroadcast(message: String) {
+    HistoryStore.append(message)
+    broadcast(message)
+}
+
+private suspend fun sendRecentHistory(client: DefaultWebSocketServerSession) {
+    val recentEvents = HistoryStore.recent()
+    broadcastMutex.withLock {
+        recentEvents.forEach { event -> client.send(event) }
+    }
+}
+
 private suspend fun broadcastPresence() {
     val usernames = clients.values
         .filter { it != "Guest" }
@@ -229,6 +273,64 @@ private suspend fun broadcastPresence() {
 }
 
 private data class ClientMessage(val username: String, val text: String, val isJoin: Boolean)
+
+private object HistoryStore {
+    private val directory = serverDataDir.resolve("history")
+    private val file = directory.resolve("events.log")
+    private val mutex = Mutex()
+    private var lastCleanupAt = 0L
+
+    fun initialize() {
+        Files.createDirectories(directory)
+        pruneBlocking(System.currentTimeMillis())
+    }
+
+    suspend fun append(event: String) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                Files.writeString(
+                    file,
+                    event + System.lineSeparator(),
+                    Charsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND,
+                )
+                val now = System.currentTimeMillis()
+                if (now - lastCleanupAt >= 60L * 60 * 1000) pruneBlocking(now)
+            }
+        }
+    }
+
+    suspend fun recent(): List<String> = mutex.withLock {
+        withContext(Dispatchers.IO) { pruneBlocking(System.currentTimeMillis()) }
+    }
+
+    private fun pruneBlocking(now: Long): List<String> {
+        if (!Files.exists(file)) {
+            lastCleanupAt = now
+            return emptyList()
+        }
+
+        val cutoff = now - HISTORY_RETENTION_MS
+        val retained = Files.readAllLines(file, Charsets.UTF_8)
+            .asSequence()
+            .filter { event ->
+                ChatProtocol.eventTimestamp(event)?.let { it >= cutoff } == true
+            }
+            .toList()
+            .takeLast(MAX_HISTORY_EVENTS)
+
+        Files.write(
+            file,
+            retained,
+            Charsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING,
+        )
+        lastCleanupAt = now
+        return retained
+    }
+}
 
 private object ChatProtocol {
     private val encoder = Base64.getUrlEncoder().withoutPadding()
@@ -258,6 +360,12 @@ private object ChatProtocol {
 
     fun encodePresence(usernames: List<String>): String =
         "PRESENCE|${usernames.joinToString(",") { encode(it) }}"
+
+    fun eventTimestamp(value: String): Long? {
+        val parts = value.split('|', limit = 4)
+        if (parts.size < 3 || parts[0] !in setOf("MESSAGE", "SYSTEM")) return null
+        return parts[2].toLongOrNull()
+    }
 
     private fun encode(value: String): String =
         encoder.encodeToString(value.toByteArray(Charsets.UTF_8))
