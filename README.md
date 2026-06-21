@@ -5,7 +5,7 @@ A local real-time chat app with an Android Jetpack Compose client and a Kotlin/K
 ## Run it in Android Studio
 
 1. Let Gradle finish syncing.
-2. Open `server/src/main/kotlin/Main.kt` and run its `main` function. The server listens on port `8080`.
+2. Open `server/src/main/kotlin/Main.kt` and run its `main` function.
 3. Start an Android emulator.
 4. Select the `app` run configuration and press Run.
 5. Enter a name and join the chat.
