@@ -3,8 +3,12 @@ const statusDot = document.querySelector('#status-dot');
 
 async function updateServerStatus() {
     try {
-        const response = await fetch('/files', { cache: 'no-store' });
-        if (!response.ok) throw new Error('Server unavailable');
+        const onGitHubPages = location.hostname.endsWith('github.io');
+        const healthUrl = onGitHubPages
+            ? 'https://somechatapp.ddns.net/health'
+            : '/health';
+        const response = await fetch(healthUrl, { cache: 'no-store', mode: onGitHubPages ? 'no-cors' : 'cors' });
+        if (!response.ok && response.type !== 'opaque') throw new Error('Server unavailable');
         statusLabel.textContent = 'Server online';
         statusDot.className = 'status-dot online';
     } catch {

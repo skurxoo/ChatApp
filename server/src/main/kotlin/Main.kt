@@ -128,6 +128,7 @@ fun main() {
             }
 
             get("/health") {
+                call.response.header(HttpHeaders.AccessControlAllowOrigin, "*")
                 call.respondText("ok", ContentType.Text.Plain)
             }
 
