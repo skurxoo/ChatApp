@@ -1,5 +1,6 @@
 package com.example.chatapp
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RaceInviteBridge.sender = { code -> sendMessage("🏁 Join my Race Park room: $code") }
 
         setContent {
             ChatAppTheme {
@@ -100,6 +102,9 @@ class MainActivity : ComponentActivity() {
                         onUploadFile = ::uploadFile,
                         onDownloadFile = ::downloadFile,
                         onDeleteFile = ::deleteFile,
+                        onOpenRacePark = { username ->
+                            startActivity(Intent(this, RaceGameActivity::class.java).putExtra("username", username))
+                        },
                     )
                 }
             }
@@ -315,6 +320,7 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onDestroy() {
+        RaceInviteBridge.sender = null
         shouldStayConnected = false
         reconnectHandler.removeCallbacks(reconnectRunnable)
         client?.close()
@@ -363,6 +369,7 @@ private fun ChatApp(
     onUploadFile: (Uri) -> Unit,
     onDownloadFile: (SharedFile, Uri) -> Unit,
     onDeleteFile: (SharedFile) -> Unit,
+    onOpenRacePark: (String) -> Unit,
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var hasJoined by rememberSaveable { mutableStateOf(false) }
@@ -392,6 +399,7 @@ private fun ChatApp(
             onUploadFile = onUploadFile,
             onDownloadFile = onDownloadFile,
             onDeleteFile = onDeleteFile,
+            onOpenRacePark = { onOpenRacePark(username.trim()) },
         )
     }
 }
@@ -477,6 +485,7 @@ private fun ChatScreen(
     onUploadFile: (Uri) -> Unit,
     onDownloadFile: (SharedFile, Uri) -> Unit,
     onDeleteFile: (SharedFile) -> Unit,
+    onOpenRacePark: () -> Unit,
 ) {
     var input by remember { mutableStateOf("") }
     var showPeople by rememberSaveable { mutableStateOf(false) }
@@ -508,6 +517,11 @@ private fun ChatScreen(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                         text = { Text("Files (${sharedFiles.size})") },
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("Games") },
                     )
                 }
             }
@@ -552,7 +566,7 @@ private fun ChatScreen(
                     MessageBubble(message = message, isMine = message.username == username)
                 }
             }
-        } else {
+        } else if (selectedTab == 1) {
             FilesScreen(
                 files = sharedFiles,
                 status = fileTransferStatus,
@@ -560,6 +574,11 @@ private fun ChatScreen(
                 onUpload = onUploadFile,
                 onDownload = onDownloadFile,
                 onDelete = onDeleteFile,
+                modifier = Modifier.padding(padding),
+            )
+        } else {
+            GamesScreen(
+                onOpenRacePark = onOpenRacePark,
                 modifier = Modifier.padding(padding),
             )
         }

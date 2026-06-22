@@ -5,6 +5,10 @@ somechatapp.ddns.net {
 		reverse_proxy 127.0.0.1:8080
 	}
 
+	handle /game* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
 	handle /files* {
 		reverse_proxy 127.0.0.1:8080
 	}

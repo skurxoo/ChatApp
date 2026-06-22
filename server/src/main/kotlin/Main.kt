@@ -107,6 +107,10 @@ fun main() {
                 }
             }
 
+            webSocket("/game") {
+                handleRaceGameSocket(this)
+            }
+
             get("/files") {
                 val files = Files.list(publicFilesDir).use { stream ->
                     stream.iterator().asSequence()

@@ -1,6 +1,15 @@
 # ChatApp
 
-Current release: **v1.1.1** (Android version code 3).
+ChatApp includes chat, shared files, and a Games area. Race Park supports live rooms for up to six players through the same server.
+
+Race Park joining options:
+
+- **Quick Match** joins an available room or creates one.
+- **Create private room** generates a three-letter invite code.
+- **Join by code** opens a specific private room.
+- **Share in chat** posts the room code into the conversation.
+
+Current release: **v1.2.1** (Android version code 5).
 
 A local real-time chat app with an Android Jetpack Compose client and a Kotlin/Ktor WebSocket server. It does not require an external API or cloud account.
 
