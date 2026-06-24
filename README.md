@@ -35,7 +35,7 @@ The client is configured to use encrypted transport through `wss://somechatapp.d
 
 Ktor listens privately on `127.0.0.1:8080`. Caddy provides public HTTPS/WSS encryption. To reach it from the internet:
 
-1. Keep the No-IP hostname `somechatapp.ddns.net` updated to the current public IP.
+1. Keep the dns hostname updated to the current public IP.
 2. Forward external TCP ports `80` and `443` to this computer's local IPv4 address.
 3. Allow inbound TCP ports `80` and `443` through Windows Firewall.
 4. Put `caddy.exe` beside `Caddyfile`, then run `start-secure-server.bat`.
