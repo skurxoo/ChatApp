@@ -15,7 +15,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ChatApp">
         <activity
-            android:name=".RaceGameActivity"
+            android:name=".games.racepark.RaceGameActivity"
+            android:configChanges="orientation|screenSize"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.ChatApp" />
+        <activity
+            android:name=".games.web.WebGameActivity"
             android:configChanges="orientation|screenSize"
             android:exported="false"
             android:screenOrientation="landscape"

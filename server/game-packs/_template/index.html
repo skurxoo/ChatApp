@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>My ChatApp Game</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { display: grid; min-height: 100vh; margin: 0; place-items: center; color: white; background: #16232b; font-family: system-ui, sans-serif; }
+        main { text-align: center; }
+        button { padding: 18px 30px; border: 0; border-radius: 18px; color: white; background: #ef584a; font: inherit; font-weight: 800; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>My ChatApp Game</h1>
+    <p>Replace this template with your HTML5 game.</p>
+    <button id="play">Tap to play</button>
+</main>
+<script>
+    document.querySelector('#play').addEventListener('click', event => {
+        event.currentTarget.textContent = 'It works!';
+    });
+</script>
+</body>
+</html>

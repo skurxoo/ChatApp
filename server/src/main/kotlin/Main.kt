@@ -25,12 +25,16 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Base64
+import java.util.Properties
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
+import java.io.BufferedOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 private const val PORT = 8080
 private const val MAX_FILE_SIZE = 100L * 1024 * 1024
@@ -45,9 +49,18 @@ private val serverDataDir: Path = System.getenv("CHATAPP_DATA_DIR")
     ?.normalize()
     ?: Path.of("server-data").toAbsolutePath().normalize()
 private val publicFilesDir: Path = serverDataDir.resolve("public")
+private val gamePacksDir: Path = System.getenv("CHATAPP_GAMES_DIR")
+    ?.let(Path::of)
+    ?.toAbsolutePath()
+    ?.normalize()
+    ?: listOf(Path.of("game-packs"), Path.of("server", "game-packs"))
+        .map { it.toAbsolutePath().normalize() }
+        .firstOrNull(Files::isDirectory)
+    ?: Path.of("game-packs").toAbsolutePath().normalize()
 
 fun main() {
     Files.createDirectories(publicFilesDir)
+    Files.createDirectories(gamePacksDir)
     HistoryStore.initialize()
     embeddedServer(Netty, host = "127.0.0.1", port = PORT) {
         install(WebSockets) {
@@ -111,6 +124,10 @@ fun main() {
                 handleRaceGameSocket(this)
             }
 
+            webSocket("/swords") {
+                handleSwordsSocket(this)
+            }
+
             get("/files") {
                 val files = Files.list(publicFilesDir).use { stream ->
                     stream.iterator().asSequence()
@@ -130,6 +147,40 @@ fun main() {
             get("/health") {
                 call.response.header(HttpHeaders.AccessControlAllowOrigin, "*")
                 call.respondText("ok", ContentType.Text.Plain)
+            }
+
+            get("/games/catalog") {
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.respondText(gameCatalogJson(), ContentType.Application.Json)
+            }
+
+            get("/games/{gameId}/download") {
+                val gameId = call.parameters["gameId"].orEmpty()
+                val gameRoot = resolveGameRoot(gameId)
+                if (gameRoot == null) {
+                    call.respond(HttpStatusCode.NotFound, "Game not found")
+                    return@get
+                }
+                val archive = withContext(Dispatchers.IO) { createGameArchive(gameRoot, gameId) }
+                try {
+                    call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$gameId.zip\"")
+                    call.respondFile(archive.toFile())
+                } finally {
+                    Files.deleteIfExists(archive)
+                }
+            }
+
+            get("/games/{gameId}") {
+                val gameId = call.parameters["gameId"].orEmpty()
+                val file = resolveGameAsset(gameId, "index.html")
+                if (file == null) call.respond(HttpStatusCode.NotFound, "Game not found") else call.respondFile(file.toFile())
+            }
+
+            get("/games/{gameId}/{asset...}") {
+                val gameId = call.parameters["gameId"].orEmpty()
+                val asset = call.parameters.getAll("asset")?.joinToString("/").orEmpty().ifBlank { "index.html" }
+                val file = resolveGameAsset(gameId, asset)
+                if (file == null) call.respond(HttpStatusCode.NotFound, "Game file not found") else call.respondFile(file.toFile())
             }
 
             get("/files/{name}") {
@@ -206,6 +257,102 @@ fun main() {
             }
         }
     }.start(wait = true)
+}
+
+private data class ServerGamePack(
+    val id: String,
+    val name: String,
+    val version: String,
+    val description: String,
+    val shortDescription: String,
+    val playerCount: String,
+    val iconLetter: String,
+    val accentColor: String,
+)
+
+private val safeGameId = Regex("[a-z0-9][a-z0-9-]{0,39}")
+
+private fun loadGamePacks(): List<ServerGamePack> {
+    if (!Files.isDirectory(gamePacksDir)) return emptyList()
+    return Files.list(gamePacksDir).use { folders ->
+        folders.filter { Files.isDirectory(it) && !it.fileName.toString().startsWith("_") }
+            .map { folder ->
+                runCatching {
+                    val properties = Properties().apply { Files.newInputStream(folder.resolve("game.properties")).use(::load) }
+                    val id = properties.getProperty("id").orEmpty().trim()
+                    require(id == folder.fileName.toString() && safeGameId.matches(id))
+                    require(properties.getProperty("enabled", "true").toBoolean())
+                    require(Files.isRegularFile(folder.resolve("index.html")))
+                    ServerGamePack(
+                        id = id,
+                        name = properties.getProperty("name").orEmpty().trim().ifBlank { id },
+                        version = properties.getProperty("version", "1.0.0").trim(),
+                        description = properties.getProperty("description", "A ChatApp game.").trim(),
+                        shortDescription = properties.getProperty("shortDescription", "Server game").trim(),
+                        playerCount = properties.getProperty("playerCount", "1 player").trim(),
+                        iconLetter = properties.getProperty("iconLetter", id.take(1).uppercase()).trim().take(2),
+                        accentColor = properties.getProperty("accentColor", "#EF584A").trim(),
+                    )
+                }.getOrNull()
+            }
+            .toList()
+            .filterNotNull()
+            .sortedBy { it.name.lowercase() }
+    }
+}
+
+private fun gameCatalogJson(): String = loadGamePacks().joinToString(prefix = "[", postfix = "]") { game ->
+    """{"id":"${jsonEscape(game.id)}","name":"${jsonEscape(game.name)}","version":"${jsonEscape(game.version)}","description":"${jsonEscape(game.description)}","shortDescription":"${jsonEscape(game.shortDescription)}","playerCount":"${jsonEscape(game.playerCount)}","iconLetter":"${jsonEscape(game.iconLetter)}","accentColor":"${jsonEscape(game.accentColor)}","launchPath":"/games/${jsonEscape(game.id)}/","packagePath":"/games/${jsonEscape(game.id)}/download"}"""
+}
+
+private fun jsonEscape(value: String): String = buildString(value.length + 8) {
+    value.forEach { char ->
+        when (char) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> if (char.code < 32) append("\\u%04x".format(char.code)) else append(char)
+        }
+    }
+}
+
+private fun resolveGameAsset(gameId: String, asset: String): Path? {
+    if (asset.contains('\\')) return null
+    val gameRoot = resolveGameRoot(gameId) ?: return null
+    val resolved = gameRoot.resolve(asset).normalize()
+    if (!resolved.startsWith(gameRoot) || resolved.fileName.toString() == "game.properties" || !Files.isRegularFile(resolved)) return null
+    return resolved
+}
+
+private fun resolveGameRoot(gameId: String): Path? {
+    if (!safeGameId.matches(gameId)) return null
+    val gameRoot = gamePacksDir.resolve(gameId).normalize()
+    return gameRoot.takeIf { it.startsWith(gamePacksDir) && Files.isRegularFile(it.resolve("game.properties")) }
+}
+
+private fun createGameArchive(gameRoot: Path, gameId: String): Path {
+    Files.createDirectories(serverDataDir)
+    val archive = Files.createTempFile(serverDataDir, "$gameId-", ".zip")
+    try {
+        ZipOutputStream(BufferedOutputStream(Files.newOutputStream(archive))).use { zip ->
+            Files.walk(gameRoot).use { paths ->
+                paths.filter(Files::isRegularFile)
+                    .filter { it.fileName.toString() != "game.properties" }
+                    .forEach { file ->
+                        val name = gameRoot.relativize(file).joinToString("/") { it.toString() }
+                        zip.putNextEntry(ZipEntry(name))
+                        Files.copy(file, zip)
+                        zip.closeEntry()
+                    }
+            }
+        }
+        return archive
+    } catch (error: Exception) {
+        Files.deleteIfExists(archive)
+        throw error
+    }
 }
 
 private class FileTooLargeException : RuntimeException()

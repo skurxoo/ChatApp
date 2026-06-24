@@ -11,6 +11,12 @@ Race Park joining options:
 
 Current release: **v1.2.1** (Android version code 5).
 
+## Independently updated games
+
+ChatApp supports downloadable HTML5 game packs. Each game is a folder under `server/game-packs` containing `game.properties`, `index.html`, and its private assets. The Android Games tab downloads these folders into private app storage. Increasing a game's version makes an **Update** button appear, so game updates do not require a new ChatApp APK. Downloaded games remain installed and can launch offline (online multiplayer still requires the server). See `server/game-packs/README.md` and copy `_template` to start a game.
+
+Native Kotlin games such as Race Park are still bundled into the APK and use the central catalog in `app/src/main/java/com/example/chatapp/games`.
+
 A local real-time chat app with an Android Jetpack Compose client and a Kotlin/Ktor WebSocket server. It does not require an external API or cloud account.
 
 ## Run it in Android Studio

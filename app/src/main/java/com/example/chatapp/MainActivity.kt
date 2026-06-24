@@ -57,6 +57,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.chatapp.games.GameDefinition
+import com.example.chatapp.games.GamesScreen
+import com.example.chatapp.games.racepark.RaceInviteBridge
+import com.example.chatapp.games.web.WebGameActivity
 import com.example.chatapp.ui.theme.ChatAppTheme
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
@@ -102,8 +106,13 @@ class MainActivity : ComponentActivity() {
                         onUploadFile = ::uploadFile,
                         onDownloadFile = ::downloadFile,
                         onDeleteFile = ::deleteFile,
-                        onOpenRacePark = { username ->
-                            startActivity(Intent(this, RaceGameActivity::class.java).putExtra("username", username))
+                        onOpenGame = { game, username ->
+                            startActivity(
+                                Intent(this, game.activityClass)
+                                    .putExtra("username", username)
+                                    .putExtra(WebGameActivity.EXTRA_GAME_URL, game.launchUrl)
+                                    .putExtra(WebGameActivity.EXTRA_GAME_NAME, game.name)
+                            )
                         },
                     )
                 }
@@ -369,7 +378,7 @@ private fun ChatApp(
     onUploadFile: (Uri) -> Unit,
     onDownloadFile: (SharedFile, Uri) -> Unit,
     onDeleteFile: (SharedFile) -> Unit,
-    onOpenRacePark: (String) -> Unit,
+    onOpenGame: (GameDefinition, String) -> Unit,
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var hasJoined by rememberSaveable { mutableStateOf(false) }
@@ -399,7 +408,7 @@ private fun ChatApp(
             onUploadFile = onUploadFile,
             onDownloadFile = onDownloadFile,
             onDeleteFile = onDeleteFile,
-            onOpenRacePark = { onOpenRacePark(username.trim()) },
+            onOpenGame = { game -> onOpenGame(game, username.trim()) },
         )
     }
 }
@@ -485,7 +494,7 @@ private fun ChatScreen(
     onUploadFile: (Uri) -> Unit,
     onDownloadFile: (SharedFile, Uri) -> Unit,
     onDeleteFile: (SharedFile) -> Unit,
-    onOpenRacePark: () -> Unit,
+    onOpenGame: (GameDefinition) -> Unit,
 ) {
     var input by remember { mutableStateOf("") }
     var showPeople by rememberSaveable { mutableStateOf(false) }
@@ -578,7 +587,7 @@ private fun ChatScreen(
             )
         } else {
             GamesScreen(
-                onOpenRacePark = onOpenRacePark,
+                onOpenGame = onOpenGame,
                 modifier = Modifier.padding(padding),
             )
         }

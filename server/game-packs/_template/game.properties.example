@@ -1,0 +1,9 @@
+enabled=true
+id=my-game
+name=My Game
+version=1.0.0
+description=A short introduction shown in the ChatApp game catalog.
+shortDescription=Arcade game
+playerCount=1 player
+iconLetter=M
+accentColor=#EF584A

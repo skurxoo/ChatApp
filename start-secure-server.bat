@@ -10,18 +10,15 @@ if not exist "%~dp0caddy.exe" (
 
 set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
 set "CHATAPP_DATA_DIR=%~dp0server\server-data"
+set "CHATAPP_GAMES_DIR=%~dp0server\game-packs"
 set "LOG_DIR=%~dp0server\server-data\logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-powershell -NoProfile -Command "if (Get-NetTCPConnection -State Listen -LocalPort 8080 -ErrorAction SilentlyContinue) { exit 1 }"
-if errorlevel 1 (
-    echo ERROR: A ChatApp server is already running on port 8080.
-    echo Close the older server window, then try again.
-    pause
-    exit /b 1
-)
-
+echo Closing old ChatApp and Caddy sessions...
+call :StopPort 8080
+call :StopPort 443
 taskkill /IM caddy.exe /F >NUL 2>&1
+timeout /t 1 /nobreak >NUL
 
 echo Starting HTTPS/WSS and ChatApp in this window...
 start "" /b "%~dp0caddy.exe" run --config "%~dp0Caddyfile" > "%LOG_DIR%\caddy.log" 2>&1
@@ -41,8 +38,16 @@ echo Keep this one window open. Closing it stops both services.
 echo.
 
 call gradlew.bat :server:run
+set "SERVER_EXIT=%ERRORLEVEL%"
 
 taskkill /IM caddy.exe /F >NUL 2>&1
 echo.
 echo ChatApp and HTTPS have stopped.
 pause
+exit /b %SERVER_EXIT%
+
+:StopPort
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%~1 .*LISTENING"') do (
+    if not "%%P"=="0" taskkill /PID %%P /F >NUL 2>&1
+)
+exit /b 0

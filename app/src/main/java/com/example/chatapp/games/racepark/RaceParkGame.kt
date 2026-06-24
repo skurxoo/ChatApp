@@ -1,5 +1,6 @@
-package com.example.chatapp
+package com.example.chatapp.games.racepark
 
+import com.example.chatapp.R
 import android.os.Bundle
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -203,29 +204,6 @@ class RaceGameActivity : ComponentActivity() {
 internal object RaceInviteBridge {
     var sender: ((String) -> Unit)? = null
     fun share(code: String) = sender?.invoke(code)
-}
-
-@Composable
-internal fun GamesScreen(onOpenRacePark: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Games", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-        Text("Choose a game to open it full screen.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Card(shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(4.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(64.dp).background(Color(0xFFEF584A), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-                        Text("R", color = Color.White, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Column { Text("Race Park", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge); Text("Tank controls • 1–6 players") }
-                }
-                Text("A full-screen track racer with quick matches, private rooms, and live multiplayer cars.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Button(onOpenRacePark, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), contentPadding = PaddingValues(vertical = 14.dp)) {
-                    Text("Open Race Park", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
 }
 
 @Composable
