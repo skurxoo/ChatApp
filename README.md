@@ -9,7 +9,7 @@ Race Park joining options:
 - **Join by code** opens a specific private room.
 - **Share in chat** posts the room code into the conversation.
 
-Current release: **v1.2.1** (Android version code 5).
+Current release: **v1.3.0** (Android version code 5).
 
 ## Independently updated games
 
